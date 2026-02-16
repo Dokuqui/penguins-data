@@ -1,6 +1,7 @@
 pymongo
 cassandra-driver
 redis
+requests
 
 pyspark
 pandas
