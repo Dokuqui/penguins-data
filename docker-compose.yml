@@ -34,6 +34,7 @@ services:
     ports:
       - "8888:8888"
       - "4040:4040"
+      - "8501:8501"
     volumes:
       - .:/home/jovyan/work
     environment:
