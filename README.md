@@ -41,7 +41,7 @@ docker-compose up -d
 The Spark container needs specific Python drivers to communicate with the databases and run the dashboard:
 
 ```bash
-docker exec -it penguin_spark pip install pymongo cassandra-driver redis requests pandas pyspark streamlit plotly matplotlib seaborn scikit-learn
+docker exec -it penguin_spark pip install pymongo cassandra-driver redis requests pandas pyspark streamlit plotly matplotlib seaborn scikit-learn scipy numpy fastapi pydantic uvicorn
 
 ```
 
