@@ -20,16 +20,18 @@ jobs:
                   username: ubuntu
                   key: ${{ secrets.VPS_SSH_KEY }}
                   script: |
-                      TARGET_DIR="/home/ubuntu/root/GitHub/penguin_project"
-                      mkdir -p $PROJECT_DIR
-                      cd $PROJECT_DIR
+                      mkdir -p /home/ubuntu/root/GitHub/penguin_project
+                      cd /home/ubuntu/root/GitHub/penguin_project
 
                       if [ -d ".git" ]; then
-                          echo "📥 Pulling latest changes..."
-                          git pull origin main
+                        echo "📥 Updating existing repository..."
+                        git pull origin main
                       else
-                          echo "📂 Cloning repository..."
-                          git clone https://github.com/Dokuqui/penguins-data.git .
+                        echo "📂 Re-initializing repository in existing folder..."
+                        git init
+                        git remote add origin https://github.com/Dokuqui/penguins-data.git
+                        git fetch
+                        git checkout -f main
                       fi
 
                       echo "🚀 Updating Containers..."
@@ -37,4 +39,4 @@ jobs:
                       sudo docker-compose -f docker-compose.prod.yml up -d --build
 
                       sudo docker image prune -f
-                      echo "✅ Deployment Complete!"
+                      echo "✅ Deployment Successful at /home/ubuntu/root/GitHub/penguin_project"
