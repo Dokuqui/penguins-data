@@ -15,7 +15,10 @@ import subprocess
 import os
 
 st.set_page_config(
-    page_title="PenguinOps Mission Control", layout="wide", page_icon="🐧"
+    page_title="PenguinOps Mission Control",
+    layout="wide",
+    page_icon="🐧",
+    initial_sidebar_state="expanded",
 )
 st.title("🐧 PenguinOps: Distributed ML Orchestrator")
 
@@ -75,7 +78,7 @@ tab_control, tab_viz, tab_mlops, tab_stats = st.tabs(
     [
         "⚙️ Pipeline Control",
         "📊 Benchmarks",
-        "🧠 Classification (MLOps)",
+        "🧠 Classification & MLOps",
         "📈 Statistics & Regression",
     ]
 )
@@ -89,20 +92,20 @@ with tab_control:
 
     with col1:
         st.subheader("1. Data Ingestion (ETL)")
+        st.info("Extracts CSV, transforms schema, loads MongoDB/Cassandra.")
         uploaded_file = st.file_uploader("📂 Upload Custom Dataset (CSV)", type="csv")
-        if uploaded_file is not None:
-            path = save_uploaded_file(uploaded_file)
-            st.success(f"File saved: {path}")
+        if uploaded_file:
+            save_uploaded_file(uploaded_file)
 
         if st.button("🚀 START INGESTION", type="primary"):
             st.session_state["status"] = "Ingesting..."
-            with st.spinner("Running ETL..."):
+            with st.spinner("Running ETL Pipeline..."):
                 success, out, err = run_shell_command(
                     ["python", "work/src/ingest_data.py"]
                 )
                 if success:
                     st.success("Ingestion Complete!")
-                    with st.expander("Logs"):
+                    with st.expander("View Logs"):
                         st.code(out)
                 else:
                     st.error("Failed")
@@ -111,9 +114,10 @@ with tab_control:
 
     with col2:
         st.subheader("2. Model Training (Spark)")
+        st.info("Submits distributed Random Forest job to Spark Cluster.")
         if st.button("🧠 TRAIN MODEL"):
             st.session_state["status"] = "Training..."
-            with st.spinner("Spark Job Running..."):
+            with st.spinner("Spark Job Running (this takes ~15s)..."):
                 cmd = [
                     "spark-submit",
                     "--packages",
@@ -123,7 +127,7 @@ with tab_control:
                 success, out, err = run_shell_command(cmd)
                 if success:
                     st.success("Training Complete!")
-                    with st.expander("Logs"):
+                    with st.expander("View Spark Logs"):
                         st.code(out)
                 else:
                     st.error("Failed")
@@ -131,11 +135,37 @@ with tab_control:
             st.session_state["status"] = "Ready"
 
 # =========================================================
-# TAB 2: BENCHMARKS
+# TAB 2: BENCHMARKS (ENHANCED)
 # =========================================================
 with tab_viz:
-    st.header("⚡ NoSQL Benchmark")
-    if st.button("🏁 RUN BENCHMARK"):
+    st.header("⚡ NoSQL Engine Comparison")
+
+    st.subheader("1. Architecture Capabilities")
+    tech_data = {
+        "Technology": ["Redis", "MongoDB", "Cassandra"],
+        "Type": [
+            "In-Memory Key-Value",
+            "Document Store (B-Tree)",
+            "Wide-Column (LSM Tree)",
+        ],
+        "Use Case": [
+            "Real-time Caching (<1ms)",
+            "Flexible Web Backends",
+            "Heavy Write Loads & Analytics",
+        ],
+        "CAP Theorem": ["CP (Consistency)", "CP (Consistency)", "AP (Availability)"],
+        "Storage": ["RAM (Volatile)", "Disk + RAM Index", "Disk (Log Structured)"],
+    }
+    st.dataframe(pd.DataFrame(tech_data), hide_index=True, use_container_width=True)
+
+    st.divider()
+
+    st.subheader("2. Live Read Latency Test")
+    st.markdown(
+        "This test runs **500 sequential reads** for a single ID (`P1020`) against all three databases."
+    )
+
+    if st.button("🏁 RUN LIVE BENCHMARK"):
         with st.spinner("Benchmarking..."):
             try:
                 r_cache = redis.Redis(
@@ -146,82 +176,106 @@ with tab_viz:
                 m_coll = MongoClient("penguin_mongo", 27017)["penguin_db"]["penguins"]
 
                 test_id = "P1020"
-                iterations = 500
+                iter = 500
 
-                # Redis
+                # Redis Test
                 r_cache.set(test_id, "0.0")
                 start = time.time()
-                for _ in range(iterations):
+                for _ in range(iter):
                     _ = r_cache.get(test_id)
-                r_time = (time.time() - start) / iterations
+                r_time = (time.time() - start) / iter
 
-                # Mongo
+                # Mongo Test
                 start = time.time()
-                for _ in range(iterations):
+                for _ in range(iter):
                     _ = m_coll.find_one({"penguin_id": test_id})
-                m_time = (time.time() - start) / iterations
+                m_time = (time.time() - start) / iter
 
-                # Cassandra
+                # Cassandra Test
                 prep = c_session.prepare(
                     "SELECT * FROM penguins_by_island WHERE island='Biscoe' AND species='Adelie' AND penguin_id=?"
                 )
                 start = time.time()
-                for _ in range(iterations):
+                for _ in range(iter):
                     _ = c_session.execute(prep, [test_id])
-                c_time = (time.time() - start) / iterations
+                c_time = (time.time() - start) / iter
 
-                data = [
-                    {
-                        "Engine": "Redis",
-                        "Latency (ms)": r_time * 1000,
-                        "Ops/Sec": int(1 / r_time),
-                    },
-                    {
-                        "Engine": "MongoDB",
-                        "Latency (ms)": m_time * 1000,
-                        "Ops/Sec": int(1 / m_time),
-                    },
-                    {
-                        "Engine": "Cassandra",
-                        "Latency (ms)": c_time * 1000,
-                        "Ops/Sec": int(1 / c_time),
-                    },
-                ]
-                df_res = pd.DataFrame(data)
+                # Results Data
+                df_res = pd.DataFrame(
+                    [
+                        {
+                            "Engine": "Redis",
+                            "Latency (ms)": r_time * 1000,
+                            "Ops/Sec": int(1 / r_time),
+                            "Type": "Cache",
+                        },
+                        {
+                            "Engine": "MongoDB",
+                            "Latency (ms)": m_time * 1000,
+                            "Ops/Sec": int(1 / m_time),
+                            "Type": "Document",
+                        },
+                        {
+                            "Engine": "Cassandra",
+                            "Latency (ms)": c_time * 1000,
+                            "Ops/Sec": int(1 / c_time),
+                            "Type": "Columnar",
+                        },
+                    ]
+                )
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Redis Latency", f"{r_time * 1000:.2f} ms", "Fastest")
+                m2.metric(
+                    "MongoDB Latency",
+                    f"{m_time * 1000:.2f} ms",
+                    f"+{(m_time / r_time):.1f}x slower",
+                    delta_color="off",
+                )
+                m3.metric(
+                    "Cassandra Latency",
+                    f"{c_time * 1000:.2f} ms",
+                    f"+{(c_time / r_time):.1f}x slower",
+                    delta_color="inverse",
+                )
 
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.plotly_chart(
-                        px.bar(
-                            df_res,
-                            x="Engine",
-                            y="Latency (ms)",
-                            color="Engine",
-                            text_auto=".2f",
-                            title="Read Latency",
-                        ),
-                        use_container_width=True,
+                    fig = px.bar(
+                        df_res,
+                        x="Engine",
+                        y="Latency (ms)",
+                        color="Engine",
+                        text_auto=".2f",
+                        title="Read Latency (Lower is Better)",
                     )
+                    st.plotly_chart(fig, use_container_width=True)
                 with c2:
-                    st.plotly_chart(
-                        px.bar(
-                            df_res,
-                            x="Engine",
-                            y="Ops/Sec",
-                            color="Engine",
-                            text_auto=True,
-                            title="Throughput",
-                        ),
-                        use_container_width=True,
+                    fig2 = px.bar(
+                        df_res,
+                        x="Engine",
+                        y="Ops/Sec",
+                        color="Engine",
+                        text_auto=True,
+                        title="Throughput (Req/sec - Higher is Better)",
                     )
+                    st.plotly_chart(fig2, use_container_width=True)
+
+                st.info("""
+                **Performance Analysis:**
+                * **Redis** wins because it serves data directly from RAM, avoiding Disk I/O.
+                * **MongoDB** performs well for single lookups due to B-Tree indexing.
+                * **Cassandra** has higher overhead for single reads (coordination latency) but scales linearly for massive write loads.
+                """)
+
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Benchmark Error: {e}")
 
 # =========================================================
-# TAB 3: MLOPS (CLASSIFICATION)
+# TAB 3: MLOPS & API (ALL GRAPHS + SCORECARD INCLUDED)
 # =========================================================
 with tab_mlops:
-    st.header("🧠 Classification Model (Random Forest)")
+    st.header("🧠 Classification & Observability")
     preds = list(db.predictions.find().limit(500))
     df_full = load_data()
 
@@ -248,128 +302,183 @@ with tab_mlops:
                 ),
                 use_container_width=True,
             )
-
         with c2:
-            st.subheader("Data Drift (KS Test)")
+            st.subheader("Data Drift (Body Mass)")
             train_data = df_full["body_mass"].astype(float).values
             prod_data = train_data * 1.05 + 50
             stat, p_val = ks_2samp(train_data, prod_data)
             st.metric(
-                "P-Value",
+                "P-Value (KS Test)",
                 f"{p_val:.4f}",
                 delta="-Drift Detected" if p_val < 0.05 else "Stable",
                 delta_color="inverse",
             )
             drift_df = pd.DataFrame(
                 {
-                    "Body Mass": np.concatenate([train_data, prod_data]),
+                    "Mass": np.concatenate([train_data, prod_data]),
                     "Source": ["Training"] * len(train_data)
                     + ["Production"] * len(prod_data),
                 }
             )
             st.plotly_chart(
-                px.histogram(
-                    drift_df, x="Body Mass", color="Source", barmode="overlay"
-                ),
+                px.histogram(drift_df, x="Mass", color="Source", barmode="overlay"),
                 use_container_width=True,
             )
 
-    st.divider()
-    st.subheader("🔌 API Gateway")
+        st.divider()
+        st.subheader("🔍 Feature Analysis")
 
-    c_look, c_cust = st.columns(2)
-    with c_look:
-        st.caption("A. Database Lookup")
+        st.write("**3D Species Separation**")
+        fig_3d = px.scatter_3d(
+            df_full,
+            x="bill_length",
+            y="bill_depth",
+            z="flipper_length",
+            color="species",
+            symbol="species",
+            opacity=0.7,
+        )
+        fig_3d.update_layout(margin=dict(l=0, r=0, b=0, t=0), height=500)
+        st.plotly_chart(fig_3d, use_container_width=True)
+
+        c3, c4 = st.columns(2)
+        with c3:
+            st.write("**Correlation Heatmap**")
+            numeric_df = df_full[
+                ["bill_length", "bill_depth", "flipper_length", "body_mass"]
+            ].astype(float)
+            corr = numeric_df.corr()
+            fig_corr = px.imshow(
+                corr, text_auto=True, aspect="auto", color_continuous_scale="RdBu_r"
+            )
+            st.plotly_chart(fig_corr, use_container_width=True)
+
+        with c4:
+            st.write("**Biometric Distributions**")
+            metric = st.selectbox(
+                "Select Metric", ["body_mass", "flipper_length", "bill_length"], index=0
+            )
+            fig_viol = px.violin(
+                df_full, y=metric, x="species", color="species", box=True, points="all"
+            )
+            st.plotly_chart(fig_viol, use_container_width=True)
+
+    st.divider()
+    st.header("🔌 API Gateway")
+
+    col_lookup, col_custom = st.columns(2)
+
+    with col_lookup:
+        st.subheader("A. Database Lookup")
         test_id = st.text_input("Penguin ID", "P1024")
-        if st.button("Search"):
+        if st.button("Search ID"):
             try:
-                r = requests.post(
+                res = requests.post(
                     "http://localhost:8000/predict/lookup", json={"penguin_id": test_id}
                 )
-                st.json(r.json())
+                if res.status_code == 200:
+                    data = res.json()
+                    st.success(f"Found: {test_id}")
+                    m1, m2 = st.columns(2)
+                    m1.metric(
+                        "Prediction", f"{data['prediction']}", delta="Existing Record"
+                    )
+                    m2.metric("Source", data["source"], delta_color="off")
+                else:
+                    st.error("ID Not Found")
             except:
                 st.error("API Error")
 
-    with c_cust:
-        st.caption("B. Real-Time Inference")
+    with col_custom:
+        st.subheader("B. Real-Time Inference")
         with st.form("cust"):
-            b_l = st.number_input("Bill Length", value=39.1)
-            b_d = st.number_input("Bill Depth", value=18.7)
-            f_l = st.number_input("Flipper Length", value=181.0)
-            b_m = st.number_input("Body Mass", value=3750.0)
-            if st.form_submit_button("Predict"):
+            c1, c2 = st.columns(2)
+            b_l = c1.number_input("Bill Length (mm)", 30.0, 60.0, 39.1)
+            b_d = c2.number_input("Bill Depth (mm)", 10.0, 25.0, 18.7)
+            f_l = c1.number_input("Flipper Length (mm)", 170.0, 240.0, 181.0)
+            b_m = c2.number_input("Body Mass (g)", 2500.0, 6500.0, 3750.0)
+
+            if st.form_submit_button("✨ Predict Species"):
                 try:
-                    payload = {
-                        "bill_length": b_l,
-                        "bill_depth": b_d,
-                        "flipper_length": f_l,
-                        "body_mass": b_m,
-                    }
-                    r = requests.post(
-                        "http://localhost:8000/predict/custom", json=payload
+                    res = requests.post(
+                        "http://localhost:8000/predict/custom",
+                        json={
+                            "bill_length": b_l,
+                            "bill_depth": b_d,
+                            "flipper_length": f_l,
+                            "body_mass": b_m,
+                        },
                     )
-                    st.json(r.json())
-                except:
-                    st.error("API Error")
+                    if res.status_code == 200:
+                        data = res.json()
+                        st.balloons()
+                        st.markdown(
+                            f"""
+                        <div style='text-align:center; padding:15px; background:#f0f2f6; border-radius:10px; margin-bottom:10px;'>
+                            <h2 style='color:#333; margin:0;'>Predicted Species</h2>
+                            <h1 style='color:#ff4b4b; font-size:40px; margin:0;'>🐧 {data["predicted_species"]}</h1>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
+                        st.metric("Model Confidence", f"{data['confidence']:.2%}")
+                        st.progress(data["confidence"])
+                        st.caption(f"⚡ Engine: {data['engine']}")
+                    else:
+                        st.error("Failed")
+                except Exception as e:
+                    st.error(f"API Error: {e}")
 
 # =========================================================
-# TAB 4: STATISTICS & REGRESSION (NEW! Satisfies Parts 1-3)
+# TAB 4: STATISTICS & REGRESSION
 # =========================================================
 with tab_stats:
     df = load_data()
     if not df.empty:
-        st.header("📈 Part 1 & 2: Descriptive Statistics")
+        st.header("📈 Descriptive Statistics")
+        st.dataframe(df.describe().style.background_gradient(cmap="Blues"))
 
-        st.subheader("Statistical Summary (Mean, Std, Min, Max)")
-        st.dataframe(df.describe())
-
-        st.subheader("Distributions")
+        st.subheader("Visual Analysis")
         c1, c2 = st.columns(2)
         with c1:
-            st.caption("Count by Island")
-            st.bar_chart(df["island"].value_counts())
+            st.plotly_chart(
+                px.histogram(
+                    df, x="island", color="species", title="Species per Island"
+                ),
+                use_container_width=True,
+            )
         with c2:
-            st.caption("Count by Sex")
-            st.bar_chart(df["sex"].value_counts())
+            st.plotly_chart(
+                px.scatter(
+                    df,
+                    x="flipper_length",
+                    y="body_mass",
+                    color="sex",
+                    title="Mass vs Flipper",
+                ),
+                use_container_width=True,
+            )
 
-        st.subheader("Specific Scatter Plots")
-        c3, c4 = st.columns(2)
-        with c3:
-            st.caption("Bill Length vs Depth (by Species)")
-            fig1 = px.scatter(
-                df,
-                x="bill_length",
-                y="bill_depth",
-                color="species",
-                title="Morphology by Species",
-            )
-            st.plotly_chart(fig1, use_container_width=True)
-        with c4:
-            st.caption("Flipper Length vs Mass (by Sex)")
-            fig2 = px.scatter(
-                df,
-                x="flipper_length",
-                y="body_mass",
-                color="sex",
-                title="Mass vs Flipper",
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+        st.subheader("Multivariate Analysis (Pairplots)")
+        fig_matrix = px.scatter_matrix(
+            df,
+            dimensions=["bill_length", "bill_depth", "flipper_length", "body_mass"],
+            color="species",
+            height=700,
+        )
+        st.plotly_chart(fig_matrix, use_container_width=True)
 
         st.divider()
-
-        st.header("📉 Part 3: Regression Lab")
-        st.markdown("Predict **Body Mass (g)** using Linear Regression.")
-
-        feature_cols = st.multiselect(
-            "Select Predictors (X)",
+        st.header("📉 Regression Lab")
+        features = st.multiselect(
+            "Predictors (X)",
             ["bill_length", "bill_depth", "flipper_length"],
             default=["flipper_length"],
         )
 
-        if feature_cols:
-            X = df[feature_cols].astype(float)
+        if features:
+            X = df[features].astype(float)
             y = df["body_mass"].astype(float)
-            
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.2, random_state=42
             )
@@ -377,45 +486,24 @@ with tab_stats:
             reg.fit(X_train, y_train)
             y_pred = reg.predict(X_test)
 
-            r2 = r2_score(y_test, y_pred)
-            mse = mean_squared_error(y_test, y_pred)
-
             c_res1, c_res2 = st.columns(2)
-            c_res1.metric("R² Score (Accuracy)", f"{r2:.4f}")
-            c_res1.metric("Mean Squared Error", f"{mse:.0f}")
+            c_res1.metric("R² Score", f"{r2_score(y_test, y_pred):.4f}")
+            c_res1.metric("MSE", f"{mean_squared_error(y_test, y_pred):.0f}")
 
             with c_res2:
-                st.write("**Model Coefficients:**")
-                coeff_df = pd.DataFrame(
-                    {"Feature": feature_cols, "Coefficient": reg.coef_}
-                )
-                st.dataframe(coeff_df)
+                st.write("Coefficients:")
+                st.dataframe(pd.DataFrame({"Feature": features, "Coef": reg.coef_}))
 
-            if len(feature_cols) == 1:
-                st.subheader("Regression Line")
-                chart_df = pd.DataFrame(
-                    {
-                        "X": X_test[feature_cols[0]],
-                        "Y Actual": y_test,
-                        "Y Predicted": y_pred,
-                    }
+            if len(features) == 1:
+                chart = pd.DataFrame(
+                    {"X": X_test[features[0]], "Y": y_test, "Pred": y_pred}
                 )
-                fig_reg = px.scatter(
-                    chart_df,
-                    x="X",
-                    y="Y Actual",
-                    opacity=0.6,
-                    title=f"Regression: {feature_cols[0]} vs Body Mass",
+                fig = px.scatter(
+                    chart, x="X", y="Y", opacity=0.6, title="Regression Line"
                 )
-                fig_reg.add_scatter(
-                    x=chart_df["X"],
-                    y=chart_df["Y Predicted"],
-                    mode="lines",
-                    name="Regression Line",
+                fig.add_scatter(
+                    x=chart["X"], y=chart["Pred"], mode="lines", name="Reg Line"
                 )
-                st.plotly_chart(fig_reg, use_container_width=True)
-        else:
-            st.warning("Please select at least one feature to run regression.")
-
+                st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error("No data found. Please run Ingestion in Tab 1.")
+        st.error("No data. Run Ingestion first.")
