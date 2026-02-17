@@ -2,9 +2,10 @@ services:
   mongodb:
     image: mongo:5.0
     container_name: penguin_mongo
-    restart: always
+    restart: unless-stopped
+    mem_limit: 1024m
     volumes:
-      - mongo_prod_data:/data/db
+      - mongo_data:/data/db
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
@@ -14,13 +15,14 @@ services:
   cassandra:
     image: cassandra:4.1
     container_name: penguin_cassandra
-    restart: always
+    restart: unless-stopped
+    mem_limit: 2048m
     environment:
       - CASSANDRA_CLUSTER_NAME=PenguinProd
-      - MAX_HEAP_SIZE=1G
+      - MAX_HEAP_SIZE=1024M
       - HEAP_NEWSIZE=200M
     volumes:
-      - cassandra_prod_data:/var/lib/cassandra
+      - cassandra_data:/var/lib/cassandra
     healthcheck:
       test: [ "CMD-SHELL", "[ $$(nodetool statusgossip) = running ]" ]
       interval: 30s
@@ -30,29 +32,31 @@ services:
   redis:
     image: redis:6.2
     container_name: penguin_redis
-    restart: always
+    restart: unless-stopped
+    mem_limit: 256m
 
   app_engine:
     build: .
     container_name: penguin_app
-    restart: always
+    restart: unless-stopped
+    mem_limit: 2500m
     depends_on:
       mongodb:
         condition: service_healthy
       cassandra:
         condition: service_healthy
     ports:
-      - "80:8501"
+      - "8501:8501"
       - "8000:8000"
     volumes:
       - .:/home/jovyan/work
     command: >
       bash -c "nohup python -m uvicorn work.src.api:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
-               echo '⏳ Waiting for API to settle...' && sleep 5 &&
-               echo '🚀 Starting Data Ingestion...' && python work/src/ingest_data.py &&
-               echo '🧠 Starting Model Training...' && spark-submit --packages org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 work/src/spark_ml.py &&
+               echo '⏳ Waiting for API...' && sleep 10 &&
+               echo '🚀 Running Ingestion...' && python work/src/ingest_data.py &&
+               echo '🧠 Training Model...' && spark-submit --packages org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 work/src/spark_ml.py &&
                echo '📊 Starting Dashboard...' && python -m streamlit run work/src/app.py --server.port 8501 --server.address 0.0.0.0"
 
 volumes:
-  mongo_prod_data:
-  cassandra_prod_data:
+  mongo_data:
+  cassandra_data:

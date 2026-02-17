@@ -1,96 +1,127 @@
-# NoSQL Benchmarking & Penguin Classification with Spark MLlib
+# 🐧 PenguinOps: Distributed Big Data & MLOps Platform
 
-## Project Overview
+![Python](https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge&logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Container-blue?style=for-the-badge&logo=docker&logoColor=white)
+![Apache Spark](https://img.shields.io/badge/Apache%20Spark-Big%20Data-orange?style=for-the-badge&logo=apachespark&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Document%20Store-green?style=for-the-badge&logo=mongodb&logoColor=white)
+![Cassandra](https://img.shields.io/badge/Cassandra-Wide%20Column-skyblue?style=for-the-badge&logo=apachecassandra&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Caching-red?style=for-the-badge&logo=redis&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Microservice-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
 
-This project implements a complete Big Data pipeline for the classification of penguin species using the Palmer Penguins dataset. It demonstrates a multi-NoSQL architecture using Document (MongoDB), Column-Family (Cassandra), and Key-Value (Redis) stores, integrated with Apache Spark for distributed machine learning and Streamlit for visual analytics.
-
-## Architecture
-
-* **Ingestion:** Python ETL script fetching raw CSV data and loading it into NoSQL engines.
-* **Storage:** - **MongoDB:** Stores nested documents (features sub-document).
-* **Cassandra:** Partitioned by `island` for distributed performance.
-
-* **Processing:** **Spark MLlib** running a Random Forest Classifier with feature scaling.
-* **Optimization:** **Redis** used as a high-speed caching layer for predictions.
-* **Visualization:** **Streamlit Dashboard** providing MLOps metrics, confusion matrices, and performance charts.
+**PenguinOps** is a production-grade **Lambda Architecture** designed to demonstrate the complete lifecycle of a Distributed Machine Learning system. It orchestrates data ingestion, distributed training (Spark), and real-time inference (FastAPI/Redis) to classify Palmer Penguin species.
 
 ---
 
-## Prerequisites
+## 🏗️ Architecture
 
-* Docker & Docker Desktop
-* Port **8501** available on your host machine
+The system follows a **Multi-NoSQL** approach to handle the 3 Vs of Big Data (Volume, Variety, Velocity).
 
----
-
-## Setup & Execution Guide
-
-### 1. Launch Infrastructure
-
-Start the NoSQL containers and the Spark environment:
-
-```bash
-docker-compose up -d
-
-```
-
-*Note: Wait ~60 seconds for Cassandra to fully initialize internal networking.*
-
-### 2. Install Drivers inside Spark Container
-
-The Spark container needs specific Python drivers to communicate with the databases and run the dashboard:
-
-```bash
-docker exec -it penguin_spark pip install pymongo cassandra-driver redis requests pandas pyspark streamlit plotly matplotlib seaborn scikit-learn scipy numpy fastapi pydantic uvicorn
-
-```
-
-### 3. Data Ingestion (ETL)
-
-Clean the data and load it into MongoDB and Cassandra:
-
-```bash
-docker exec -it penguin_spark python work/src/ingest_data.py
-
-```
-
-### 4. Distributed Machine Learning (Spark MLlib)
-
-Prepare Cassandra schema and run the Spark job to train the model and save predictions:
-
-```bash
-docker exec -it penguin_cassandra cqlsh -e "DROP TABLE IF EXISTS penguin_ks.penguins_by_island;"
-docker exec -it penguin_cassandra cqlsh -e "CREATE TABLE penguin_ks.penguins_by_island (island text, species text, penguin_id text, bill_length float, body_mass int, prediction double, PRIMARY KEY ((island), species, penguin_id));"
-
-docker exec -it penguin_spark spark-submit \
-  --packages org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 \
-  work/src/spark_ml.py
-
-```
-
-### 5. Launch Visual Dashboard (Streamlit)
-
-Start the interactive dashboard to view MLOps metrics and NoSQL benchmarks:
-
-```bash
-docker exec -it penguin_spark python -m streamlit run work/src/app.py --server.address 0.0.0.0
-
-```
-
-**Access URL:** `http://localhost:8501`
+| Layer | Technology | Role |
+| :--- | :--- | :--- |
+| **Ingestion** | **Python ETL** | Fetches raw CSV data, cleans it, and dispatches it to the Data Lake. |
+| **Storage (Lake)** | **MongoDB** | Stores semi-structured JSON documents (flexible schema). |
+| **Storage (Ware)** | **Cassandra** | Stores analytical data partitioned by geography (`island`) for high availability. |
+| **Processing** | **Apache Spark** | Distributed training of Random Forest models (`Spark MLlib`) on the cluster. |
+| **Speed Layer** | **Redis** | Caches high-frequency predictions (< 1ms latency). |
+| **Serving** | **FastAPI** | Microservice exposing REST endpoints for real-time inference. |
+| **Visualization** | **Streamlit** | Interactive Mission Control dashboard for MLOps & Analytics. |
 
 ---
 
-## Benchmark Results (Actual Run)
+## 🚀 Features
 
-| Technology | Avg Latency | Estimated Throughput |
-| --- | --- | --- |
-| MongoDB | 0.35 ms | 2823 req/s |
-| Cassandra | 1.52 ms | 658 req/s |
-| Redis | 0.18 ms | 5677 req/s |
+### 1. Hybrid Inference Engine
 
-## Key Findings
+- **Batch Mode:** Spark processes historical data and saves results to Cassandra.
+- **Real-Time Mode:** API trains a "Shadow Model" (Scikit-Learn) on startup to predict *unknown* penguins instantly.
 
-* **Redis Efficiency:** Proved to be **~8.5x faster** than Cassandra for point-lookups, justifying its role as a caching layer for high-concurrency predictions.
-* **Model Accuracy:** Implementing a `StandardScaler` was critical to resolve classification bias caused by the high variance in biometric scales (grams vs. millimeters).
-* **Scalability:** Cassandra's partitioning by `island` enables the system to scale horizontally by distributing geographic data across multiple nodes.
+### 2. MLOps Observability
+
+- **Data Drift Detection:** Automatically monitors `body_mass` distribution using the **Kolmogorov-Smirnov Test**.
+- **Performance Tracking:** Live Confusion Matrix comparing MongoDB labels vs. Spark predictions.
+
+### 3. Advanced Benchmarking
+
+- Built-in benchmarking tool comparing **Redis vs. MongoDB vs. Cassandra** read latencies.
+- **Results:** Redis (~0.18ms) proves 8x faster than Cassandra for point lookups.
+
+### 4. Interactive Data Lab
+
+- **Regression Analysis:** Perform Linear Regression to predict body mass.
+- **3D Visualization:** Explore species separation in 3D space (Bill Length x Depth x Flipper).
+
+---
+
+## 🛠️ Installation & Usage
+
+### Prerequisites
+
+- Docker & Docker Compose installed.
+- 4GB+ RAM available (Spark requirement).
+
+### 1. Clone the Repository
+
+```bash
+git clone [https://github.com/dokuqui/penguins-data.git](https://github.com/dokuqui/penguins-data.git)
+cd penguins-data
+```
+
+### 2. Run with Docker Compose
+
+```bash
+docker-compose up -d --build
+
+```
+
+*Wait ~2 minutes for the Spark container to initialize and train the models.*
+
+### 3. Access the Platform
+
+- **📊 Dashboard:** [http://localhost:8501]()
+- **🔌 API Docs:** [http://localhost:8000/docs]()
+- **📓 Jupyter:** [http://localhost:8888]()
+
+---
+
+## ☁️ Deployment (VPS / Cloud)
+
+This project includes a production-ready `deploy.sh` script for deploying to **AWS, Azure, or OVH**.
+
+1. **Upload to VPS:**
+
+```bash
+scp -r * root@YOUR_VPS_IP:~/penguin_project/
+
+```
+
+1. **Run Deployment Script:**
+
+```bash
+ssh root@YOUR_VPS_IP
+cd penguin_project
+bash deploy.sh
+
+```
+
+*The script automatically installs Docker, optimizes memory limits, and launches the stack.*
+
+---
+
+## 📂 Project Structure
+
+```text
+├── docker-compose.prod.yml  # Production container orchestration
+├── Dockerfile               # Custom Spark + Python image
+├── deploy.sh                # Auto-deployment script
+├── work/
+│   ├── src/
+│   │   ├── app.py           # Streamlit Dashboard (Frontend)
+│   │   ├── api.py           # FastAPI Service (Backend)
+│   │   ├── spark_ml.py      # Spark Training Job
+│   │   ├── ingest_data.py   # ETL Pipeline
+│   │   └── benchmark.py     # Database Stress Test
+│   └── data/                # Local data storage
+└── README.md                # Documentation
+
+```
