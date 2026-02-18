@@ -54,12 +54,12 @@ def save_uploaded_file(uploaded_file):
 if "status" not in st.session_state:
     st.session_state["status"] = "Ready"
 
-st.sidebar.header("🕹️ System Status")
+st.sidebar.header("System Status")
 st.sidebar.info(st.session_state["status"])
 st.sidebar.markdown("---")
-st.sidebar.success("✅ MongoDB: Connected")
-st.sidebar.success("✅ Spark: Idle")
-st.sidebar.success("✅ API: Running (Port 8000)")
+st.sidebar.success("MongoDB: Connected")
+st.sidebar.success("Spark: Idle")
+st.sidebar.success("API: Running (Port 8000)")
 
 
 def load_data():

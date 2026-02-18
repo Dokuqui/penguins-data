@@ -1,9 +1,13 @@
 # 🐧 Rapport Technique : Architecture Big Data Distribuée & MLOps
 
 **Projet :** Classification Distribuée des Manchots (Palmer Penguins) avec Architecture Multi-NoSQL
+
 **Date :** 17 Février 2026
+
 **Auteur :** Semenov Illia
+
 **Stack Technique :** Docker, Apache Spark, MongoDB, Cassandra, Redis, FastAPI, Streamlit
+
 **URL du Dashboard :** [http://91.134.143.137:8501/]()
 
 ---
